@@ -1,0 +1,208 @@
+// =============================================================================
+//  RCS Film Grain.dctl - monochrome + colour film grain for DaVinci Resolve
+//  Red Coral Studios - open source, MIT. Built from scratch (not a decode of any
+//  commercial .dctle). DCTL 4 (Resolve 17+). Node > right-click > DaVinci CTL.
+// -----------------------------------------------------------------------------
+//  ANIMATION - automatic. Grain reshuffles every frame via the built-in
+//  TIMELINE_FRAME_INDEX (see seed calc below). No keyframing. "Seed" is just a
+//  manual offset to shift the pattern.
+//
+//  RESOLUTION - automatic. Grain is authored at a 1080p reference and scaled by
+//  the live timeline height (p_Height / 1080), so it looks identical at 720p..8K.
+//  Real grain is a fixed size on the negative; a bigger scan just resolves it
+//  across more pixels. Nothing to set.
+// -----------------------------------------------------------------------------
+//  FILM STOCK PRESETS - grounded in real physics. Sharpness/coarseness of grain
+//  in the final image is dominated by ENLARGEMENT: the smaller the camera
+//  negative, the more it is blown up to a common output, so grain reads bigger
+//  and hotter. sizeMul = enlargement factor (35mm frame width / format width);
+//  intMul = same, tempered so the slider range stays usable (bigger grain is
+//  already more visible via size alone - full physical intensity would double-count).
+//
+//    Stock     Negative     Enlarge   sizeMul   intMul   Character
+//    -------   ----------   -------   -------   ------   ------------------
+//    Super 8   5.79 mm       3.81x      3.8      3.2     boiling, chunky
+//    16mm     10.26 mm       2.15x      2.15     2.0     gritty doc look
+//    35mm     22.05 mm       1.00x      1.0      1.0     reference, fine
+//    65mm     52.48 mm       0.42x      0.5      0.45    whisper of texture
+//
+//  A DCTL combo box cannot write back into the other sliders (no callbacks), so
+//  the stock applies these as HIDDEN multipliers on top of the Intensity / Grain
+//  Size sliders - the slider numbers stay put, the output changes. If you prefer
+//  WYSIWYG numbers, set Custom and dial these effective values by hand:
+//
+//    Stock     Intensity   Grain Size px   (= 35mm base 0.2 / 1.6  x  multiplier)
+//    -------   ---------   -------------
+//    Super 8     0.64          6.1
+//    16mm        0.40          3.44
+//    35mm        0.20          1.6
+//    65mm        0.09          0.8
+//
+//  Frame dims: cinematography.net, Wikipedia (Super 8 / 70 mm film). Fuller
+//  derivation in FILM-STOCK-RESEARCH.md alongside this file.
+// =============================================================================
+
+// ------------------------------ UI PARAMETERS --------------------------------
+DEFINE_UI_PARAMS(uStock, Film Stock, DCTLUI_COMBO_BOX, 3, {ST_CUSTOM, ST_S8, ST_S16, ST_S35, ST_S65}, {Custom, Super 8, Film 16mm, Film 35mm, Film 65mm})
+DEFINE_UI_PARAMS(uIntensity, Intensity, DCTLUI_SLIDER_FLOAT, 0.2f, 0.0f, 1.0f, 0.01f)
+DEFINE_UI_PARAMS(uSize, Grain Size px, DCTLUI_SLIDER_FLOAT, 1.6f, 0.3f, 6.0f, 0.05f)
+DEFINE_UI_PARAMS(uSoft, Softness, DCTLUI_SLIDER_FLOAT, 0.25f, 0.0f, 1.0f, 0.01f)
+DEFINE_UI_PARAMS(uRough, Roughness, DCTLUI_SLIDER_FLOAT, 0.35f, 0.0f, 1.0f, 0.01f)
+DEFINE_UI_PARAMS(uShadow, Shadow Amount, DCTLUI_SLIDER_FLOAT, 1.0f, 0.0f, 2.0f, 0.01f)
+DEFINE_UI_PARAMS(uMid, Midtone Amount, DCTLUI_SLIDER_FLOAT, 1.0f, 0.0f, 2.0f, 0.01f)
+DEFINE_UI_PARAMS(uHigh, Highlight Amount, DCTLUI_SLIDER_FLOAT, 0.55f, 0.0f, 2.0f, 0.01f)
+DEFINE_UI_PARAMS(uColorAmt, Colour Grain, DCTLUI_SLIDER_FLOAT, 0.0f, 0.0f, 1.0f, 0.01f)
+DEFINE_UI_PARAMS(uColorSat, Colour Saturation, DCTLUI_SLIDER_FLOAT, 0.6f, 0.0f, 2.0f, 0.01f)
+DEFINE_UI_PARAMS(uSeed, Seed, DCTLUI_SLIDER_FLOAT, 0.0f, 0.0f, 4096.0f, 1.0f)
+DEFINE_UI_PARAMS(uMix, Blend, DCTLUI_SLIDER_FLOAT, 1.0f, 0.0f, 1.0f, 0.01f)
+DEFINE_UI_PARAMS(uClamp, Clamp Output, DCTLUI_CHECK_BOX, 1)
+
+// ------------------------------ HELPERS --------------------------------------
+__DEVICE__ float mixf(float a, float b, float t) { return a + (b - a) * t; }
+__DEVICE__ float satf(float x)              { return _fmaxf(0.0f, _fminf(1.0f, x)); }
+__DEVICE__ float smooth1(float t)           { return t * t * (3.0f - 2.0f * t); }
+
+// integer-quality 2D hash -> [0,1). Bit-mixing (lowbias32 finalizer) is fully
+// decorrelated on integer grids - float fract-of-product hashes (sin or
+// Hoskins) keep weak periodicity on the exact pixel lattice, which reads as a
+// faint weave on flat midtones. This one does not.
+__DEVICE__ float hashI(float x, float y, float seed)
+{
+    unsigned int h = (unsigned int)((int)_floorf(x)) * 0x9E3779B1u
+                   ^ (unsigned int)((int)_floorf(y)) * 0x85EBCA77u
+                   ^ (unsigned int)((int)_floorf(seed)) * 0xC2B2AE3Du;
+    h ^= h >> 16; h *= 0x7FEB352Du;
+    h ^= h >> 15; h *= 0x846CA68Bu;
+    h ^= h >> 16;
+    return (float)(h & 0x00FFFFFFu) * (1.0f / 16777216.0f);
+}
+
+// quintic fade (Perlin) - C2 continuous across cells, no lattice creases
+__DEVICE__ float fade5(float t)             { return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f); }
+
+// hashed gradient direction at a lattice corner, dotted with the sample offset
+__DEVICE__ float gdot(float cx, float cy, float dx, float dy, float seed)
+{
+    float ang = hashI(cx, cy, seed) * 6.2831853f;
+    return _cosf(ang) * dx + _sinf(ang) * dy;
+}
+
+// 2D gradient noise (Perlin) ~[-1,1]. Zero-mean and band-limited: energy sits
+// at the lattice frequency, so it reads as granularity, not value-noise clouds.
+__DEVICE__ float gnoise(float x, float y, float seed)
+{
+    float ix = _floorf(x), iy = _floorf(y);
+    float fx = x - ix,     fy = y - iy;
+    float a = gdot(ix,        iy,        fx,        fy,        seed);
+    float b = gdot(ix + 1.0f, iy,        fx - 1.0f, fy,        seed);
+    float c = gdot(ix,        iy + 1.0f, fx,        fy - 1.0f, seed);
+    float d = gdot(ix + 1.0f, iy + 1.0f, fx - 1.0f, fy - 1.0f, seed);
+    float ux = fade5(fx), uy = fade5(fy);
+    return mixf(mixf(a, b, ux), mixf(c, d, ux), uy) * 1.6f;
+}
+
+// rotate a 2D coord by angle a (breaks axis-aligned lattice artifacts)
+__DEVICE__ float2 rot2(float x, float y, float a)
+{
+    float s = _sinf(a), c = _cosf(a);
+    return make_float2(x * c - y * s, x * s + y * c);
+}
+
+// signed grain ~[-1,1]. Clumps = 3 rotated gradient-noise octaves centred on
+// the grain frequency: base cell + finer bite + coarser clumping (grid-free,
+// 1/f-ish around the grain size like real emulsion). A power-law shaper then
+// raises kurtosis so the field reads as discrete silver particles instead of
+// smooth cloud noise. Detail = per-pixel white noise, kept subordinate.
+__DEVICE__ float grainField(float x, float y, float px, float py, float seed, float rough, float soft)
+{
+    float2 a = rot2(x, y, 0.7f);
+    float2 b = rot2(x, y, 2.4f);
+    float2 c = rot2(x, y, 3.9f);
+    float n = gnoise(a.x,         a.y,         seed)
+            + gnoise(b.x * 2.1f,  b.y * 2.1f,  seed + 31.0f) * 0.55f
+            + gnoise(c.x * 0.53f, c.y * 0.53f, seed + 71.0f) * 0.35f;
+    n *= 0.84f;                                                       // ~unit amplitude
+
+    float fine = hashI(px, py, seed * 1.7f) * 2.0f - 1.0f;            // per-pixel, zero lattice
+
+    float g = mixf(n, fine, rough * rough);                           // Roughness -> crisper bite
+
+    float shape = mixf(0.55f, 1.0f, soft);                            // Softness relaxes the shaper
+    g = (g < 0.0f ? -1.0f : 1.0f) * _powf(_fabs(g), shape);           // particle look, more punch
+
+    float lo = gnoise(x * 0.35f, y * 0.35f, seed - 9.1f);             // slow clump breathing
+    g = mixf(g, lo, soft * 0.35f);
+    return g;
+}
+
+// -------------------------------- TRANSFORM ----------------------------------
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    // --- film-stock presets: hidden (size, intensity) multipliers ------------
+    // See header for the physics + the equivalent WYSIWYG slider values.
+    float sizeMul = 1.0f, intMul = 1.0f;
+    if (uStock == ST_S8)  { sizeMul = 3.8f;  intMul = 3.2f;  }  // boiling, chunky (5.79mm negative, ~3.8x enlargement)
+    if (uStock == ST_S16) { sizeMul = 2.15f; intMul = 2.0f;  }  // gritty doc look (10.26mm, ~2.15x)
+    if (uStock == ST_S35) { sizeMul = 1.0f;  intMul = 1.0f;  }  // reference, fine (22mm)
+    if (uStock == ST_S65) { sizeMul = 0.5f;  intMul = 0.45f; }  // whisper of texture (52mm, ~0.42x)
+
+    // resolution normalisation (automatic, no UI): grain is authored at a 1080p
+    // reference. Real film grain is a fixed size on the negative, so at higher scan
+    // resolutions it must span MORE pixels to keep the same size relative to the
+    // frame. Scale grain px by the live timeline height / 1080 so the look is
+    // identical at 720p..8K. p_Height is the current timeline height - detected here.
+    float resScale = (float)p_Height / 1080.0f;
+    float size = _fmaxf(0.30f, uSize * sizeMul * resScale);
+    float fx = (float)p_X / size;
+    float fy = (float)p_Y / size;
+
+    // --- luma-adaptive weighting: film density response ----------------------
+    // grain rides the mid-densities. A mid-peaked gate rolls it off toward pure
+    // black and clipped white, so blacks stay clean (no digital noise-floor
+    // look) and whites stay silky - amplitude follows the density curve.
+    float L  = p_R * 0.2126f + p_G * 0.7152f + p_B * 0.0722f;
+    float Lc = satf(L);
+    float wShadow = smooth1(satf(1.0f - Lc * 2.0f));
+    float wHigh   = smooth1(satf((Lc - 0.5f) * 2.0f));
+    float wMid    = smooth1(satf(1.0f - _fabs(Lc - 0.45f) * 2.2f));
+    float gate    = _powf(satf(4.0f * Lc * (1.0f - Lc)), 0.35f);
+    float lumaAmt = (uShadow * wShadow + uMid * wMid + uHigh * wHigh) * gate;
+
+    // --- generate grain ------------------------------------------------------
+    float amt = uIntensity * intMul * lumaAmt * 0.15f;   // 0.15 = sane ceiling
+
+    // per-frame reshuffle: fold the timeline frame index into the seed so grain
+    // "dances" every frame automatically (TIMELINE_FRAME_INDEX is a built-in)
+    float seed = uSeed + (float)TIMELINE_FRAME_INDEX * 17.0f;
+
+    float pxf = (float)p_X, pyf = (float)p_Y;
+
+    // monochrome grain (one field, all channels)
+    float gM = grainField(fx, fy, pxf, pyf, seed, uRough, uSoft);
+
+    // colour grain (three decorrelated fields)
+    float gR = grainField(fx, fy, pxf, pyf, seed + 101.0f, uRough, uSoft);
+    float gG = grainField(fx, fy, pxf, pyf, seed + 227.0f, uRough, uSoft);
+    float gB = grainField(fx, fy, pxf, pyf, seed + 353.0f, uRough, uSoft);
+
+    // blend colour fields toward mono by (1 - ColourSaturation) then crossfade
+    gR = mixf(gM, gR, uColorSat);
+    gG = mixf(gM, gG, uColorSat);
+    gB = mixf(gM, gB, uColorSat);
+
+    float dR = mixf(gM, gR, uColorAmt) * amt;
+    float dG = mixf(gM, gG, uColorAmt) * amt;
+    float dB = mixf(gM, gB, uColorAmt) * amt;
+
+    // additive grain, then global blend against the original
+    float oR = mixf(p_R, p_R + dR, uMix);
+    float oG = mixf(p_G, p_G + dG, uMix);
+    float oB = mixf(p_B, p_B + dB, uMix);
+
+    if (uClamp) {
+        oR = satf(oR);
+        oG = satf(oG);
+        oB = satf(oB);
+    }
+    return make_float3(oR, oG, oB);
+}

@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Film Grain - WebGL</title>
+<style>
+  :root{
+    --bg:#0d0f12; --panel:#15181d; --panel2:#1b1f26; --line:#272c34;
+    --txt:#e6e8ec; --dim:#8b94a3; --acc:#ff5a3c; --acc2:#ffb03c;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font:13px/1.4 ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif}
+  #app{display:grid;grid-template-columns:300px 1fr;height:100%}
+  /* ---- sidebar ---- */
+  aside{background:var(--panel);border-right:1px solid var(--line);
+    overflow-y:auto;padding:14px 14px 40px}
+  h1{font-size:14px;letter-spacing:.5px;margin:0 0 2px;font-weight:600}
+  .sub{color:var(--dim);font-size:11px;margin:0 0 14px}
+  .grp{border:1px solid var(--line);border-radius:8px;padding:10px 11px;margin:0 0 11px;background:var(--panel2)}
+  .grp>h2{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--acc2);
+    margin:0 0 9px;font-weight:600}
+  details.adv>summary{font-size:11px;text-transform:uppercase;letter-spacing:.7px;
+    color:var(--acc2);font-weight:600;cursor:pointer;list-style:none;
+    display:flex;align-items:center;justify-content:space-between;user-select:none}
+  details.adv>summary::-webkit-details-marker{display:none}
+  details.adv>summary::after{content:"\25B8";color:var(--dim);transition:transform .15s}
+  details.adv[open]>summary{margin-bottom:9px}
+  details.adv[open]>summary::after{transform:rotate(90deg)}
+  .row{margin:0 0 9px}
+  .row:last-child{margin-bottom:0}
+  label{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px}
+  label b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--acc);height:4px}
+  select{width:100%;background:#0f1216;color:var(--txt);border:1px solid var(--line);
+    border-radius:6px;padding:6px;font:inherit}
+  .chk{display:flex;align-items:center;gap:7px;color:var(--txt);font-size:12px;cursor:pointer}
+  .chk input{accent-color:var(--acc);width:15px;height:15px}
+  .btns{display:flex;gap:8px;margin-top:4px}
+  button{flex:1;background:var(--acc);color:#111;border:0;border-radius:7px;
+    padding:9px;font:inherit;font-weight:700;cursor:pointer;letter-spacing:.3px}
+  button.ghost{background:#0f1216;color:var(--txt);border:1px solid var(--line);font-weight:600}
+  button:active{transform:translateY(1px)}
+  /* ---- stage ---- */
+  main{position:relative;display:flex;align-items:center;justify-content:center;
+    overflow:hidden;background:
+      repeating-conic-gradient(#101216 0% 25%,#0c0e11 0% 50%) 50%/22px 22px}
+  canvas{max-width:100%;max-height:100%;box-shadow:0 8px 40px rgba(0,0,0,.6);image-rendering:auto}
+  #drop{position:absolute;inset:0;display:none;flex-direction:column;gap:10px;
+    align-items:center;justify-content:center;color:var(--dim);
+    border:2px dashed transparent;transition:.15s;pointer-events:none}
+  #drop.show{display:flex;pointer-events:auto}
+  #drop.hot{border-color:var(--acc);background:rgba(255,90,60,.06)}
+  #drop .big{font-size:15px;color:var(--txt)}
+  #drop .hint{font-size:12px}
+  #drop button{pointer-events:auto;flex:0;padding:9px 18px}
+  .tag{font-size:10px;color:var(--dim);text-align:center;margin-top:12px;line-height:1.5}
+  #badge{position:absolute;top:14px;left:14px;z-index:5;padding:4px 10px;border-radius:5px;
+    font-size:11px;font-weight:700;letter-spacing:1px;background:rgba(255,90,60,.9);color:#111;
+    display:none;pointer-events:none}
+  #badge.orig{background:rgba(255,255,255,.85)}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <h1>Film Grain</h1>
+    <p class="sub">WebGL2 · same grain math as the DCTL</p>
+
+    <div class="grp">
+      <div class="row">
+        <label>Film Stock</label>
+        <select id="stock">
+          <option value="1">Super 8 - coarse, heavy</option>
+          <option value="2">16mm - gritty doc</option>
+          <option value="3" selected>35mm - fine (reference)</option>
+          <option value="4">65mm - near-clean</option>
+          <option value="0">Custom</option>
+        </select>
+      </div>
+      <div class="row"><label>Intensity <b id="v_int">0.20</b></label><input type="range" id="intensity" min="0" max="1" step="0.01" value="0.2"></div>
+      <div class="row"><label>Grain Size (px) <b id="v_size">1.60</b></label><input type="range" id="size" min="0.3" max="8" step="0.05" value="1.6"></div>
+    </div>
+
+    <details class="grp adv">
+      <summary>Advanced settings</summary>
+      <div class="row"><label class="chk"><input type="checkbox" id="showGrain" checked> Show grain <span style="color:var(--dim);font-weight:400">(Space = A/B)</span></label></div>
+      <div class="row"><label class="chk"><input type="checkbox" id="animate"> Animate grain (moving)</label></div>
+      <div class="row"><label>Colour Grain <b id="v_ca">0.00</b></label><input type="range" id="colorAmt" min="0" max="1" step="0.01" value="0"></div>
+      <div class="row"><label>Colour Saturation <b id="v_cs">0.60</b></label><input type="range" id="colorSat" min="0" max="2" step="0.01" value="0.6"></div>
+      <div class="row"><label>Softness <b id="v_soft">0.25</b></label><input type="range" id="soft" min="0" max="1" step="0.01" value="0.25"></div>
+      <div class="row"><label>Roughness <b id="v_rough">0.35</b></label><input type="range" id="rough" min="0" max="1" step="0.01" value="0.35"></div>
+      <div class="row"><label>Shadows <b id="v_sh">1.00</b></label><input type="range" id="shadow" min="0" max="2" step="0.01" value="1"></div>
+      <div class="row"><label>Midtones <b id="v_mid">1.00</b></label><input type="range" id="mid" min="0" max="2" step="0.01" value="1"></div>
+      <div class="row"><label>Highlights <b id="v_hi">0.55</b></label><input type="range" id="high" min="0" max="2" step="0.01" value="0.55"></div>
+      <div class="row"><label>Seed <b id="v_seed">0</b></label><input type="range" id="seed" min="0" max="4096" step="1" value="0"></div>
+      <div class="row"><label>Blend <b id="v_mix">1.00</b></label><input type="range" id="mix" min="0" max="1" step="0.01" value="1"></div>
+      <div class="row"><label class="chk"><input type="checkbox" id="clamp" checked> Clamp to 0-1</label></div>
+    </details>
+
+    <div class="btns">
+      <button id="loadBtn" class="ghost">Load image</button>
+      <button id="saveBtn">Save JPEG</button>
+    </div>
+    <p class="tag">Drop an image anywhere · runs fully offline<br>scroll = zoom · drag = pan · double-click = reset</p>
+  </aside>
+
+  <main id="stage">
+    <div id="badge">GRAIN</div>
+    <canvas id="gl"></canvas>
+    <div id="drop" class="show">
+      <div class="big">Drop an image here</div>
+      <div class="hint">or</div>
+      <button id="pick">Choose file</button>
+      <div class="hint">jpg · png · webp — nothing leaves your machine</div>
+    </div>
+  </main>
+</div>
+<input type="file" id="file" accept="image/*" hidden>
+
+<script>
+const gl = document.getElementById('gl').getContext('webgl2', {preserveDrawingBuffer:true, premultipliedAlpha:false});
+if(!gl){ alert('WebGL2 not available in this browser.'); }
+
+// ---- shaders -----------------------------------------------------------------
+const VERT = `#version 300 es
+in vec2 pos; out vec2 uv;
+void main(){ uv = pos*0.5+0.5; gl_Position = vec4(pos,0.,1.); }`;
+
+const FRAG = `#version 300 es
+precision highp float;
+in vec2 uv; out vec4 outColor;
+uniform sampler2D uImg;
+uniform vec2  uRes;
+uniform float uInt,uSize,uSoft,uRough,uSh,uMid,uHi,uColAmt,uColSat,uSeed,uMix;
+uniform float uClamp,uBypass;
+
+// integer-quality 2D hash -> [0,1). Bit-mixing (lowbias32 finalizer) is fully
+// decorrelated on integer grids - float fract-of-product hashes keep weak
+// periodicity on the exact pixel lattice (faint weave on flat midtones).
+float hashI(float x,float y,float s){
+  uint h = uint(int(floor(x))) * 0x9E3779B1u
+         ^ uint(int(floor(y))) * 0x85EBCA77u
+         ^ uint(int(floor(s))) * 0xC2B2AE3Du;
+  h ^= h >> 16; h *= 0x7FEB352Du;
+  h ^= h >> 15; h *= 0x846CA68Bu;
+  h ^= h >> 16;
+  return float(h & 0x00FFFFFFu) / 16777216.0;
+}
+float smooth1(float t){ return t*t*(3.0-2.0*t); }
+// quintic fade (Perlin) - C2 continuous across cells, no lattice creases
+float fade5(float t){ return t*t*t*(t*(t*6.0-15.0)+10.0); }
+// hashed gradient direction at a lattice corner, dotted with the sample offset
+float gdot(float cx,float cy,float dx,float dy,float s){
+  float ang = hashI(cx,cy,s) * 6.2831853;
+  return cos(ang)*dx + sin(ang)*dy;
+}
+// 2D gradient noise (Perlin) ~[-1,1]. Zero-mean and band-limited: energy sits
+// at the lattice frequency, so it reads as granularity, not value-noise clouds.
+float gnoise(float x,float y,float s){
+  float ix=floor(x), iy=floor(y), fx=x-ix, fy=y-iy;
+  float a=gdot(ix,   iy,   fx,    fy,    s);
+  float b=gdot(ix+1.,iy,   fx-1., fy,    s);
+  float c=gdot(ix,   iy+1.,fx,    fy-1., s);
+  float d=gdot(ix+1.,iy+1.,fx-1., fy-1., s);
+  float ux=fade5(fx), uy=fade5(fy);
+  return mix(mix(a,b,ux), mix(c,d,ux), uy) * 1.6;
+}
+vec2 rot2(float x,float y,float a){ float s=sin(a),c=cos(a); return vec2(x*c-y*s, x*s+y*c); }
+// signed grain ~[-1,1]. Clumps = 3 rotated gradient-noise octaves centred on
+// the grain frequency (base + finer bite + coarser clumping, grid-free). A
+// power-law shaper raises kurtosis -> discrete silver particles, not clouds.
+float grainField(float x,float y,float px,float py,float s,float rough,float soft){
+  vec2 a=rot2(x,y,0.7), b=rot2(x,y,2.4), c=rot2(x,y,3.9);       // rotated, incommensurate
+  float n = gnoise(a.x,a.y,s)
+          + gnoise(b.x*2.1,b.y*2.1,s+31.0)*0.55
+          + gnoise(c.x*0.53,c.y*0.53,s+71.0)*0.35;
+  n *= 0.84;                                                    // ~unit amplitude
+  float fine = hashI(px,py,s*1.7)*2.0-1.0;                      // per-pixel, zero lattice
+  float g = mix(n, fine, rough*rough);                          // Roughness -> crisper bite
+  float shape = mix(0.55, 1.0, soft);                           // Softness relaxes the shaper
+  g = sign(g) * pow(abs(g), shape);                             // particle look, more punch
+  float lo = gnoise(x*0.35, y*0.35, s-9.1);                     // slow clump breathing
+  g = mix(g, lo, soft*0.35);
+  return g;
+}
+void main(){
+  vec3 src = texture(uImg, uv).rgb;
+  if(uBypass>0.5){ outColor = vec4(src,1.0); return; }   // A/B: show original
+  float px = uv.x*uRes.x, py = uv.y*uRes.y;
+  // resolution normalisation (see DCTL, automatic): grain px scales with image
+  // height / 1080 so the look is identical whatever the resolution. Ref = 1080p.
+  float resScale = uRes.y/1080.0;
+  float size = max(0.30, uSize*resScale);
+  float fx = px/size, fy = py/size;
+
+  // film density response: mid-peaked gate rolls grain off toward pure black
+  // and clipped white - blacks stay clean, whites stay silky
+  float L = dot(src, vec3(0.2126,0.7152,0.0722));
+  float Lc = clamp(L, 0.0, 1.0);
+  float wSh = smooth1(clamp(1.0 - Lc*2.0, 0.0,1.0));
+  float wHi = smooth1(clamp((Lc-0.5)*2.0, 0.0,1.0));
+  float wMi = smooth1(clamp(1.0 - abs(Lc-0.45)*2.2, 0.0,1.0));
+  float gate = pow(clamp(4.0*Lc*(1.0-Lc), 0.0,1.0), 0.35);
+  float lumaAmt = (uSh*wSh + uMid*wMi + uHi*wHi) * gate;
+
+  float amt = uInt*lumaAmt*0.15;
+
+  float gM = grainField(fx,fy,px,py,uSeed,uRough,uSoft);
+  float gR = grainField(fx,fy,px,py,uSeed+101.0,uRough,uSoft);
+  float gG = grainField(fx,fy,px,py,uSeed+227.0,uRough,uSoft);
+  float gB = grainField(fx,fy,px,py,uSeed+353.0,uRough,uSoft);
+  gR=mix(gM,gR,uColSat); gG=mix(gM,gG,uColSat); gB=mix(gM,gB,uColSat);
+
+  vec3 d = vec3(mix(gM,gR,uColAmt), mix(gM,gG,uColAmt), mix(gM,gB,uColAmt))*amt;
+  vec3 res = src + d;
+  res = mix(src, res, uMix);
+  if(uClamp>0.5) res = clamp(res,0.0,1.0);
+  outColor = vec4(res,1.0);
+}`;
+
+function compile(type,src){
+  const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(s);
+  return s;
+}
+const prog=gl.createProgram();
+gl.attachShader(prog,compile(gl.VERTEX_SHADER,VERT));
+gl.attachShader(prog,compile(gl.FRAGMENT_SHADER,FRAG));
+gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog,gl.LINK_STATUS)) throw gl.getProgramInfoLog(prog);
+gl.useProgram(prog);
+
+// fullscreen triangle-pair
+const vbo=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vbo);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 3,-1, -1,3]),gl.STATIC_DRAW);
+const loc=gl.getAttribLocation(prog,'pos');
+gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+
+// texture
+const tex=gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D,tex);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+
+const U={};
+['uImg','uRes','uInt','uSize','uSoft','uRough','uSh','uMid','uHi','uColAmt','uColSat','uSeed','uMix','uClamp','uBypass']
+  .forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+
+// ---- state / controls --------------------------------------------------------
+// Film Stock is the primary control: picking one WRITES the Intensity + Grain Size
+// sliders to that format's values (WYSIWYG - the numbers you see are what applies).
+// Values = 35mm base (int 0.2 / size 1.6) x the real enlargement factor per format.
+// Custom (0) leaves the sliders untouched for freeform work.
+const STOCK_FILL={1:[0.64,6.1], 2:[0.40,3.44], 3:[0.20,1.6], 4:[0.09,0.8]};
+let W=0,H=0,hasImg=false,animOn=false,animSeed=0,spaceHeld=false;
+function updateBadge(byp){
+  const b=document.getElementById('badge');
+  if(!hasImg){ b.style.display='none'; return; }
+  b.style.display='block';
+  b.textContent = byp ? 'ORIGINAL' : 'GRAIN';
+  b.classList.toggle('orig', byp);
+}
+const $=id=>document.getElementById(id);
+const ctrl={intensity:'v_int',size:'v_size',soft:'v_soft',rough:'v_rough',
+  shadow:'v_sh',mid:'v_mid',high:'v_hi',colorAmt:'v_ca',colorSat:'v_cs',seed:'v_seed',mix:'v_mix'};
+
+function fmt(id,val){ $(id).textContent = (id==='v_seed')? Math.round(val): (+val).toFixed(2); }
+
+function render(forceGrain){
+  if(!hasImg) return;
+  const cv=gl.canvas;
+  if(cv.width!==W||cv.height!==H){ cv.width=W; cv.height=H; }
+  gl.viewport(0,0,W,H);
+  gl.uniform1i(U.uImg,0);
+  gl.uniform2f(U.uRes,W,H);
+  gl.uniform1f(U.uInt,+$('intensity').value);
+  gl.uniform1f(U.uSize,+$('size').value);
+  gl.uniform1f(U.uSoft,+$('soft').value);
+  gl.uniform1f(U.uRough,+$('rough').value);
+  gl.uniform1f(U.uSh,+$('shadow').value);
+  gl.uniform1f(U.uMid,+$('mid').value);
+  gl.uniform1f(U.uHi,+$('high').value);
+  gl.uniform1f(U.uColAmt,+$('colorAmt').value);
+  gl.uniform1f(U.uColSat,+$('colorSat').value);
+  gl.uniform1f(U.uSeed, animOn? animSeed : +$('seed').value);
+  gl.uniform1f(U.uMix,+$('mix').value);
+  gl.uniform1f(U.uClamp,$('clamp').checked?1:0);
+  const byp = forceGrain ? false : (spaceHeld ? true : !$('showGrain').checked);
+  gl.uniform1f(U.uBypass, byp?1:0);
+  if(!forceGrain) updateBadge(byp);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+}
+
+function loop(){ if(!animOn) return; animSeed+=1.0; render(); requestAnimationFrame(loop); }
+
+// wire sliders
+Object.keys(ctrl).forEach(id=>{
+  const el=$(id);
+  el.addEventListener('input',()=>{ fmt(ctrl[id],el.value); if(!animOn) render(); });
+  fmt(ctrl[id],el.value);
+});
+// Film Stock writes the Intensity + Grain Size sliders, then renders
+function applyStock(){
+  const f=STOCK_FILL[$('stock').value];
+  if(f){
+    $('intensity').value=f[0]; fmt('v_int',f[0]);
+    $('size').value=f[1];      fmt('v_size',f[1]);
+  }
+  render();
+}
+$('stock').addEventListener('change',applyStock);
+applyStock();  // init: default 35mm fills 0.20 / 1.6
+$('clamp').addEventListener('change',render);
+$('showGrain').addEventListener('change',render);
+
+// Spacebar = hold to peek at the original (A/B compare)
+window.addEventListener('keydown',e=>{
+  if(e.code==='Space' && !spaceHeld && !e.repeat){ spaceHeld=true; e.preventDefault(); if(!animOn) render(); }
+});
+window.addEventListener('keyup',e=>{
+  if(e.code==='Space'){ spaceHeld=false; e.preventDefault(); if(!animOn) render(); }
+});
+$('animate').addEventListener('change',e=>{
+  animOn=e.target.checked;
+  if(animOn){ animSeed=+$('seed').value; loop(); } else render();
+});
+
+// ---- image loading -----------------------------------------------------------
+function loadImage(src){
+  const img=new Image();
+  img.onload=()=>{
+    W=img.naturalWidth; H=img.naturalHeight;
+    gl.bindTexture(gl.TEXTURE_2D,tex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
+    hasImg=true;
+    $('drop').classList.remove('show');
+    resetView();
+    render();
+  };
+  img.onerror=()=>alert('Could not load that image.');
+  img.src=src;
+}
+function handleFile(f){ if(f&&f.type.startsWith('image/')){ const r=new FileReader(); r.onload=e=>loadImage(e.target.result); r.readAsDataURL(f); } }
+
+$('file').addEventListener('change',e=>handleFile(e.target.files[0]));
+['loadBtn','pick'].forEach(id=>$(id).addEventListener('click',()=>$('file').click()));
+
+const stage=$('stage'), drop=$('drop');
+window.addEventListener('dragover',e=>{e.preventDefault(); drop.classList.add('show','hot');});
+window.addEventListener('dragleave',e=>{ if(e.relatedTarget===null){ drop.classList.remove('hot'); if(hasImg)drop.classList.remove('show'); }});
+window.addEventListener('drop',e=>{
+  e.preventDefault(); drop.classList.remove('hot');
+  if(hasImg)drop.classList.remove('show');
+  handleFile(e.dataTransfer.files[0]);
+});
+
+// ---- zoom on scroll + drag to pan -------------------------------------------
+let zoom=1, panX=0, panY=0, dragging=false, lastX=0, lastY=0;
+function applyView(){
+  gl.canvas.style.transform = `translate(${panX}px,${panY}px) scale(${zoom})`;
+  gl.canvas.style.cursor = zoom>1 ? (dragging?'grabbing':'grab') : 'default';
+  gl.canvas.style.imageRendering = zoom>=3 ? 'pixelated' : 'auto'; // see real grain when deep
+}
+function resetView(){ zoom=1; panX=0; panY=0; applyView(); }
+stage.addEventListener('wheel',e=>{
+  if(!hasImg) return;
+  e.preventDefault();
+  const r=stage.getBoundingClientRect();
+  const cx=e.clientX-(r.left+r.width/2), cy=e.clientY-(r.top+r.height/2);
+  const prev=zoom;
+  zoom=Math.min(16, Math.max(1, zoom*(e.deltaY<0?1.12:1/1.12)));
+  const k=zoom/prev;
+  panX=cx-k*(cx-panX); panY=cy-k*(cy-panY);
+  if(zoom<=1.0001){ zoom=1; panX=0; panY=0; }
+  applyView();
+},{passive:false});
+stage.addEventListener('mousedown',e=>{ if(zoom>1){ dragging=true; lastX=e.clientX; lastY=e.clientY; applyView(); e.preventDefault(); }});
+window.addEventListener('mousemove',e=>{ if(dragging){ panX+=e.clientX-lastX; panY+=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; applyView(); }});
+window.addEventListener('mouseup',()=>{ if(dragging){ dragging=false; applyView(); }});
+stage.addEventListener('dblclick',resetView);
+
+// ---- export ------------------------------------------------------------------
+$('saveBtn').addEventListener('click',()=>{
+  if(!hasImg){ alert('Load an image first.'); return; }
+  render(true); // force grain on for the exported frame
+  gl.canvas.toBlob(b=>{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(b);
+    a.download='grain_'+W+'x'+H+'.jpg';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  },'image/jpeg',0.95);
+});
+</script>
+</body>
+</html>

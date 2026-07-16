@@ -1,0 +1,9 @@
+// =============================================================================
+//  == RedCoralStudios ==   (dropdown divider / label - not a real effect)
+//  A no-op passthrough so this shows as a header above the Red Coral Studios
+//  DCTLs in Resolve's list. Selecting it does nothing (returns input unchanged).
+// =============================================================================
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    return make_float3(p_R, p_G, p_B);
+}
