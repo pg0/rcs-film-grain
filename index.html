@@ -110,7 +110,7 @@
       <button id="loadBtn" class="ghost">Load image</button>
       <button id="saveBtn">Save JPEG</button>
     </div>
-    <p class="tag">Drop an image anywhere · runs fully offline<br>scroll = zoom · drag = pan · double-click = reset · hold Space = A/B</p>
+    <p class="tag">Drop an image anywhere · runs fully offline<br>scroll = zoom · drag = pan · double-click = reset<br>A/B split: drag the divider · hold Space = full A/B</p>
   </aside>
 
   <main id="stage">
@@ -197,10 +197,13 @@ float grainField(float x,float y,float px,float py,float s,float rough,float sof
 void main(){
   vec3 src = texture(uImg, uv).rgb;
   if(uBypass>0.5){ outColor = vec4(src,1.0); return; }   // A/B: show original
-  // A/B split view: left half = original, right half = grained, thin divider
+  // A/B split view: left of the divider = original, right = grained. The divider
+  // is a movable vertical line with a round grab handle at mid-height.
   if(uSplit >= 0.0){
-    float lw = 1.5/uRes.x;
-    if(abs(uv.x - uSplit) < lw){ outColor = vec4(1.0,1.0,1.0,1.0); return; }
+    float dx = (uv.x - uSplit) * uRes.x;          // px distance to divider
+    float dy = (uv.y - 0.5)    * uRes.y;          // px distance to mid-height
+    float kd = sqrt(dx*dx + dy*dy);               // radius from handle centre
+    if(abs(dx) < 1.0 || (kd >= 9.0 && kd <= 15.0)){ outColor = vec4(1.0,1.0,1.0,1.0); return; }
     if(uv.x < uSplit){ outColor = vec4(src,1.0); return; }
   }
   float px = uv.x*uRes.x, py = uv.y*uRes.y;
@@ -272,7 +275,7 @@ const U={};
 // Values = 35mm base (int 0.2 / size 1.6) x the real enlargement factor per format.
 // Custom (0) leaves the sliders untouched for freeform work.
 const STOCK_FILL={1:[0.64,6.1], 2:[0.40,3.44], 3:[0.20,1.6], 4:[0.09,0.8]};
-let W=0,H=0,hasImg=false,animOn=false,animSeed=0,spaceHeld=false,splitOn=false;
+let W=0,H=0,hasImg=false,animOn=false,animSeed=0,spaceHeld=false,splitOn=false,splitX=0.5;
 function updateBadge(byp){
   const b=document.getElementById('badge');
   if(!hasImg){ b.style.display='none'; return; }
@@ -307,7 +310,7 @@ function render(forceGrain){
   gl.uniform1f(U.uClamp,$('clamp').checked?1:0);
   // split view active unless we're exporting (forceGrain) or peeking full original (space)
   const split = splitOn && !forceGrain && !spaceHeld;
-  gl.uniform1f(U.uSplit, split ? 0.5 : -1.0);
+  gl.uniform1f(U.uSplit, split ? splitX : -1.0);
   // in split mode the grain path must run (ignore the Show-grain toggle)
   const byp = forceGrain ? false : (spaceHeld ? true : (split ? false : !$('showGrain').checked));
   gl.uniform1f(U.uBypass, byp?1:0);
@@ -410,9 +413,21 @@ stage.addEventListener('wheel',e=>{
   if(zoom<=1.0001){ zoom=1; panX=0; panY=0; }
   applyView();
 },{passive:false});
-stage.addEventListener('mousedown',e=>{ if(zoom>1){ dragging=true; lastX=e.clientX; lastY=e.clientY; applyView(); e.preventDefault(); }});
-window.addEventListener('mousemove',e=>{ if(dragging){ panX+=e.clientX-lastX; panY+=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; applyView(); }});
-window.addEventListener('mouseup',()=>{ if(dragging){ dragging=false; applyView(); }});
+let draggingDiv=false;
+// map a screen X to an image-space fraction (0..1) via the canvas' live rect,
+// which already reflects the current zoom/pan CSS transform
+function screenToSplit(clientX){ const r=gl.canvas.getBoundingClientRect(); return Math.min(0.98,Math.max(0.02,(clientX-r.left)/r.width)); }
+function nearDivider(clientX){ const r=gl.canvas.getBoundingClientRect(); return Math.abs(clientX-(r.left+splitX*r.width))<26; }
+stage.addEventListener('mousedown',e=>{
+  if(splitOn && hasImg && nearDivider(e.clientX)){ draggingDiv=true; splitX=screenToSplit(e.clientX); render(); e.preventDefault(); return; }
+  if(zoom>1){ dragging=true; lastX=e.clientX; lastY=e.clientY; applyView(); e.preventDefault(); }
+});
+window.addEventListener('mousemove',e=>{
+  if(draggingDiv){ splitX=screenToSplit(e.clientX); render(); return; }
+  if(dragging){ panX+=e.clientX-lastX; panY+=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; applyView(); return; }
+  if(splitOn && hasImg){ gl.canvas.style.cursor = nearDivider(e.clientX) ? 'ew-resize' : (zoom>1?'grab':'default'); }
+});
+window.addEventListener('mouseup',()=>{ if(draggingDiv){ draggingDiv=false; } if(dragging){ dragging=false; applyView(); }});
 stage.addEventListener('dblclick',resetView);
 
 // ---- export ------------------------------------------------------------------
