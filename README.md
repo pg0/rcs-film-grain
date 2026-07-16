@@ -1,4 +1,4 @@
-# RCS Film Grain
+# Film Grain.dctl
 
 Open-source (MIT) monochrome + colour **film grain** for DaVinci Resolve, plus a
 matching browser tool. Built from scratch - not a decode of any commercial `.dctle`.
