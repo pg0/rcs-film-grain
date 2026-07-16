@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>grain.js - embed demo</title>
+<style>
+  body{margin:0;background:#111;color:#eee;font:15px/1.6 system-ui,sans-serif;padding:40px;max-width:900px;margin:auto}
+  h1{font-weight:600} code{background:#222;padding:2px 6px;border-radius:4px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:28px 0}
+  figure{margin:0} img{width:100%;height:auto;border-radius:8px;display:block}
+  figcaption{font-size:13px;color:#9aa;margin-top:8px}
+</style>
+</head>
+<body>
+  <h1>grain.js embed demo</h1>
+  <p>Tag an image with <code>grain</code> or <code>class="grain"</code> and it gets real
+     film grain applied automatically. Per-image stock via <code>grain="65mm"</code>.</p>
+
+  <div class="grid">
+    <figure>
+      <img src="https://picsum.photos/id/1015/800/600" crossorigin="anonymous" alt="no grain">
+      <figcaption>plain &lt;img&gt; - no grain</figcaption>
+    </figure>
+    <figure>
+      <img src="https://picsum.photos/id/1015/800/600" crossorigin="anonymous" grain alt="default 35mm">
+      <figcaption><code>&lt;img grain&gt;</code> - default stock (35mm)</figcaption>
+    </figure>
+    <figure>
+      <img src="https://picsum.photos/id/1025/800/600" crossorigin="anonymous" grain="super8" alt="super 8">
+      <figcaption><code>grain="super8"</code> - heavy, chunky</figcaption>
+    </figure>
+    <figure>
+      <img src="https://picsum.photos/id/1025/800/600" crossorigin="anonymous" grain="65mm" alt="65mm">
+      <figcaption><code>grain="65mm"</code> - whisper of texture</figcaption>
+    </figure>
+  </div>
+
+  <p>This page opts in per image. To grain <em>every</em> image instead and only skip
+     opted-out ones, use <code>Grain.init({ all: true })</code> and mark exceptions with
+     <code>grain="false"</code> or <code>class="nograin"</code>.</p>
+
+  <script src="../grain.js"></script>
+  <script>
+    Grain.init({ stock: '35mm' });
+    // Grain.init({ all: true, stock: '35mm' });  // opt-out mode
+  </script>
+</body>
+</html>

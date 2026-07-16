@@ -12,6 +12,8 @@ independence. Two twins that share the exact same grain math:
 
 **Try the web app live: https://pg0.github.io/rcs-film-grain/**
 
+![RCS Film Grain on a spectrum chart, 35mm preset](images/35mm-color.jpg)
+
 ## Why "RCS" in the name
 
 At least one common third-party pack (`utility-dctls`) also ships a `Film Grain.dctl`.
@@ -20,14 +22,11 @@ one. This is deliberately **RCS Film Grain** so it's unmistakable.
 
 ## Install (DaVinci Resolve)
 
-Copy the two `.dctl` files into Resolve's LUT folder (a subfolder is fine):
+Copy `RCS Film Grain.dctl` into Resolve's LUT folder (a subfolder is fine):
 
 - Windows: `C:\ProgramData\Blackmagic Design\DaVinci Resolve\Support\LUT\`
 - macOS: `/Library/Application Support/Blackmagic Design/DaVinci Resolve/LUT/`
 - Linux: `/opt/resolve/LUT/` (or `/home/resolve/LUT/`)
-
-`== RedCoralStudios ==.dctl` is an optional no-op passthrough that sorts to the top
-of the dropdown as a label - skip it if you don't want it.
 
 In Resolve: **Color page > right-click a node > DaVinci CTL > RCS Film Grain**, or add
 a **DCTL** OFX effect and pick the file. Hit the refresh icon in the LUT browser if it
@@ -84,6 +83,22 @@ Equivalent WYSIWYG slider values (35mm base 0.2 / 1.6 × multiplier):
 
 Full derivation, frame dimensions and sources: [`FILM-STOCK-RESEARCH.md`](FILM-STOCK-RESEARCH.md).
 
+The same colour chart across the four presets - grain gets coarser and hotter as the
+negative gets smaller (65mm barely there, Super 8 boiling):
+
+<table>
+<tr>
+<td align="center"><img src="images/8mm-checker.jpg" width="100%"><br><sub><b>Super 8</b></sub></td>
+<td align="center"><img src="images/16mm-checker.jpg" width="100%"><br><sub><b>16mm</b></sub></td>
+</tr>
+<tr>
+<td align="center"><img src="images/35mm-checker.jpg" width="100%"><br><sub><b>35mm</b></sub></td>
+<td align="center"><img src="images/65mm-checker.jpg" width="100%"><br><sub><b>65mm</b></sub></td>
+</tr>
+</table>
+
+More examples (spectrum + grey-wedge charts per stock) are in [`images/`](images/).
+
 ## Automatic behaviour (no controls)
 
 - **Animation** - grain reshuffles every frame via Resolve's built-in
@@ -103,6 +118,31 @@ step in [`MATH.md`](MATH.md).
 Grain reads `p_X, p_Y` (and the frame index) per pixel, so it **cannot** be a 3D LUT: a
 `.cube` is a pure `RGB → RGB` map with no spatial or temporal input. This has to be a
 DCTL / shader.
+
+## Embed on a website (grain.js)
+
+`grain.js` is a tiny drop-in that grains images on any web page - no build, no
+dependencies, one shared WebGL context for the whole page.
+
+```html
+<img src="photo.jpg" grain>          <!-- default stock -->
+<img src="photo.jpg" grain="65mm">   <!-- per-image stock -->
+<img src="photo.jpg" class="grain">  <!-- CSS class works too -->
+
+<script src="grain.js"></script>
+<script>Grain.init({ stock: '35mm' });</script>
+```
+
+Two modes:
+
+- **opt-in** (default) - only tagged images: `Grain.init()`
+- **opt-out** - grain *every* image, skip the exceptions: `Grain.init({ all: true })`,
+  then mark exceptions with `grain="false"` or `class="nograin"`.
+
+Per-image overrides via data attributes: `data-grain-stock`, `data-grain-intensity`,
+`data-grain-size`. Grain auto-scales with the displayed image height (1080px
+reference). Cross-origin images need `crossorigin="anonymous"` + CORS headers.
+Working example: [`examples/embed.html`](examples/embed.html).
 
 ## Node placement tips
 
