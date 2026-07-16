@@ -174,7 +174,11 @@
     gl.uniform1f(U.uMid, CFG.midtones);
     gl.uniform1f(U.uHi, CFG.highlights);
     gl.uniform1f(U.uSeed, inst.seed);
-    gl.uniform1f(U.uRef, CFG.referenceHeight * scale);
+    // Reference the grain to DEVICE pixels, not CSS pixels: uRes is in device px
+    // (rect * dpr), so NOT multiplying the reference by dpr means the grain cell
+    // size tracks real pixels. On high-dpr phones a small image still has plenty
+    // of device pixels, so grain stays crisp instead of washing out sub-pixel.
+    gl.uniform1f(U.uRef, CFG.referenceHeight);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     inst.ctx.clearRect(0, 0, w, h);
     inst.ctx.drawImage(glCanvas, 0, 0);
