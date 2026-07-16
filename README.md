@@ -84,12 +84,59 @@ Equivalent WYSIWYG slider values (35mm base 0.2 / 1.6 × multiplier):
 Full derivation, frame dimensions and sources: [`FILM-STOCK-RESEARCH.md`](FILM-STOCK-RESEARCH.md).
 
 Every preset on three test charts - a ColorChecker, an RGB spectrum and a grey wedge.
-Grain gets coarser and hotter as the negative gets smaller (65mm barely there, Super 8
-boiling), and the mid-peaked density response keeps blacks and clipped whites clean:
+These are **100% crops** (native pixels) so you see the actual grain: it gets coarser
+and hotter as the negative gets smaller (65mm barely there, Super 8 boiling), and the
+mid-peaked density response keeps blacks and clipped whites clean. Top row is the clean
+original for reference.
 
 <table>
 <tr>
 <th></th><th>ColorChecker</th><th>Spectrum</th><th>Grey wedge</th>
+</tr>
+<tr>
+<td align="right"><b>Original</b></td>
+<td><img src="images/crop-original-checker.jpg" width="100%"></td>
+<td><img src="images/crop-original-color.jpg" width="100%"></td>
+<td><img src="images/crop-original-gray.jpg" width="100%"></td>
+</tr>
+<tr>
+<td align="right"><b>Super&nbsp;8</b></td>
+<td><img src="images/crop-8mm-checker.jpg" width="100%"></td>
+<td><img src="images/crop-8mm-color.jpg" width="100%"></td>
+<td><img src="images/crop-8mm-gray.jpg" width="100%"></td>
+</tr>
+<tr>
+<td align="right"><b>16mm</b></td>
+<td><img src="images/crop-16mm-checker.jpg" width="100%"></td>
+<td><img src="images/crop-16mm-color.jpg" width="100%"></td>
+<td><img src="images/crop-16mm-gray.jpg" width="100%"></td>
+</tr>
+<tr>
+<td align="right"><b>35mm</b></td>
+<td><img src="images/crop-35mm-checker.jpg" width="100%"></td>
+<td><img src="images/crop-35mm-color.jpg" width="100%"></td>
+<td><img src="images/crop-35mm-gray.jpg" width="100%"></td>
+</tr>
+<tr>
+<td align="right"><b>65mm</b></td>
+<td><img src="images/crop-65mm-checker.jpg" width="100%"></td>
+<td><img src="images/crop-65mm-color.jpg" width="100%"></td>
+<td><img src="images/crop-65mm-gray.jpg" width="100%"></td>
+</tr>
+</table>
+
+<details>
+<summary>Full charts (whole frame, per stock)</summary>
+
+<table>
+<tr>
+<th></th><th>ColorChecker</th><th>Spectrum</th><th>Grey wedge</th>
+</tr>
+<tr>
+<td align="right"><b>Original</b></td>
+<td><img src="images/original-checker.jpg" width="100%"></td>
+<td><img src="images/original-color.jpg" width="100%"></td>
+<td><img src="images/original-gray.jpg" width="100%"></td>
 </tr>
 <tr>
 <td align="right"><b>Super&nbsp;8</b></td>
@@ -116,6 +163,7 @@ boiling), and the mid-peaked density response keeps blacks and clipped whites cl
 <td><img src="images/65mm-gray.jpg" width="100%"></td>
 </tr>
 </table>
+</details>
 
 ## Automatic behaviour (no controls)
 
@@ -158,9 +206,11 @@ Two modes:
   then mark exceptions with `grain="false"` or `class="nograin"`.
 
 Per-image overrides via data attributes: `data-grain-stock`, `data-grain-intensity`,
-`data-grain-size`. Grain auto-scales with the displayed image height (1080px
-reference). Cross-origin images need `crossorigin="anonymous"` + CORS headers.
-Working example: [`examples/embed.html`](examples/embed.html).
+`data-grain-size`. Grain auto-scales with the displayed image height and stays crisp
+on high-dpr phones. Cross-origin images need `crossorigin="anonymous"` + CORS headers.
+
+**Live example: https://pg0.github.io/rcs-film-grain/examples/embed.html**
+([source](examples/embed.html))
 
 ## Node placement tips
 
