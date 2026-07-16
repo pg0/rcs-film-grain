@@ -83,21 +83,39 @@ Equivalent WYSIWYG slider values (35mm base 0.2 / 1.6 × multiplier):
 
 Full derivation, frame dimensions and sources: [`FILM-STOCK-RESEARCH.md`](FILM-STOCK-RESEARCH.md).
 
-The same colour chart across the four presets - grain gets coarser and hotter as the
-negative gets smaller (65mm barely there, Super 8 boiling):
+Every preset on three test charts - a ColorChecker, an RGB spectrum and a grey wedge.
+Grain gets coarser and hotter as the negative gets smaller (65mm barely there, Super 8
+boiling), and the mid-peaked density response keeps blacks and clipped whites clean:
 
 <table>
 <tr>
-<td align="center"><img src="images/8mm-checker.jpg" width="100%"><br><sub><b>Super 8</b></sub></td>
-<td align="center"><img src="images/16mm-checker.jpg" width="100%"><br><sub><b>16mm</b></sub></td>
+<th></th><th>ColorChecker</th><th>Spectrum</th><th>Grey wedge</th>
 </tr>
 <tr>
-<td align="center"><img src="images/35mm-checker.jpg" width="100%"><br><sub><b>35mm</b></sub></td>
-<td align="center"><img src="images/65mm-checker.jpg" width="100%"><br><sub><b>65mm</b></sub></td>
+<td align="right"><b>Super&nbsp;8</b></td>
+<td><img src="images/8mm-checker.jpg" width="100%"></td>
+<td><img src="images/8mm-color.jpg" width="100%"></td>
+<td><img src="images/8mm-gray.jpg" width="100%"></td>
+</tr>
+<tr>
+<td align="right"><b>16mm</b></td>
+<td><img src="images/16mm-checker.jpg" width="100%"></td>
+<td><img src="images/16mm-color.jpg" width="100%"></td>
+<td><img src="images/16mm-gray.jpg" width="100%"></td>
+</tr>
+<tr>
+<td align="right"><b>35mm</b></td>
+<td><img src="images/35mm-checker.jpg" width="100%"></td>
+<td><img src="images/35mm-color.jpg" width="100%"></td>
+<td><img src="images/35mm-gray.jpg" width="100%"></td>
+</tr>
+<tr>
+<td align="right"><b>65mm</b></td>
+<td><img src="images/65mm-checker.jpg" width="100%"></td>
+<td><img src="images/65mm-color.jpg" width="100%"></td>
+<td><img src="images/65mm-gray.jpg" width="100%"></td>
 </tr>
 </table>
-
-More examples (spectrum + grey-wedge charts per stock) are in [`images/`](images/).
 
 ## Automatic behaviour (no controls)
 
