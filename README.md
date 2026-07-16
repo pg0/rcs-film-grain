@@ -8,7 +8,9 @@ luma-density response, automatic per-frame animation and automatic resolution
 independence. Two twins that share the exact same grain math:
 
 - **`RCS Film Grain.dctl`** - the Resolve plugin (DCTL 4, Resolve 17+).
-- **`web/index.html`** - a self-contained WebGL2 app: drop an image, grain it, save. Fully offline, no build, no dependencies.
+- **`index.html`** - a self-contained WebGL2 app: drop an image, grain it, save. Fully offline, no build, no dependencies.
+
+**Try the web app live: https://pg0.github.io/rcs-film-grain/**
 
 ## Why "RCS" in the name
 
@@ -36,8 +38,9 @@ doesn't show up.
 
 ## Web app
 
-Open `web/index.html` in any modern browser (or host it anywhere - it's a single
-static file). Drag an image in, pick a stock, save a JPEG. Nothing ever leaves your
+Live at **https://pg0.github.io/rcs-film-grain/**, or open `index.html` locally in any
+modern browser (it's a single static file - host it anywhere). Drag an image in, pick a
+stock, save a JPEG. Nothing ever leaves your
 machine. Scroll = zoom, drag = pan, double-click = reset, hold Space = A/B compare.
 
 ## Controls
