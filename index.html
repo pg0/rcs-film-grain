@@ -41,6 +41,7 @@
   button{flex:1;background:var(--acc);color:#111;border:0;border-radius:7px;
     padding:9px;font:inherit;font-weight:700;cursor:pointer;letter-spacing:.3px}
   button.ghost{background:#0f1216;color:var(--txt);border:1px solid var(--line);font-weight:600}
+  button.ghost.on{background:var(--acc);color:#111;border-color:var(--acc)}
   button:active{transform:translateY(1px)}
   /* ---- stage ---- */
   main{position:relative;display:flex;align-items:center;justify-content:center;
@@ -60,6 +61,11 @@
     font-size:11px;font-weight:700;letter-spacing:1px;background:rgba(255,90,60,.9);color:#111;
     display:none;pointer-events:none}
   #badge.orig{background:rgba(255,255,255,.85)}
+  .splitLbl{position:absolute;top:14px;z-index:5;padding:4px 10px;border-radius:5px;
+    font-size:11px;font-weight:700;letter-spacing:1px;color:#111;display:none;pointer-events:none}
+  .splitLbl.show{display:block}
+  #lblA{left:14px;background:rgba(255,255,255,.85)}
+  #lblB{right:14px;background:rgba(255,90,60,.9)}
 </style>
 </head>
 <body>
@@ -100,14 +106,17 @@
     </details>
 
     <div class="btns">
+      <button id="splitBtn" class="ghost">A/B split</button>
       <button id="loadBtn" class="ghost">Load image</button>
       <button id="saveBtn">Save JPEG</button>
     </div>
-    <p class="tag">Drop an image anywhere · runs fully offline<br>scroll = zoom · drag = pan · double-click = reset</p>
+    <p class="tag">Drop an image anywhere · runs fully offline<br>scroll = zoom · drag = pan · double-click = reset · hold Space = A/B</p>
   </aside>
 
   <main id="stage">
     <div id="badge">GRAIN</div>
+    <div id="lblA" class="splitLbl">ORIGINAL</div>
+    <div id="lblB" class="splitLbl">GRAIN</div>
     <canvas id="gl"></canvas>
     <div id="drop" class="show">
       <div class="big">Drop an image here</div>
@@ -134,7 +143,7 @@ in vec2 uv; out vec4 outColor;
 uniform sampler2D uImg;
 uniform vec2  uRes;
 uniform float uInt,uSize,uSoft,uRough,uSh,uMid,uHi,uColAmt,uColSat,uSeed,uMix;
-uniform float uClamp,uBypass;
+uniform float uClamp,uBypass,uSplit;
 
 // integer-quality 2D hash -> [0,1). Bit-mixing (lowbias32 finalizer) is fully
 // decorrelated on integer grids - float fract-of-product hashes keep weak
@@ -188,6 +197,12 @@ float grainField(float x,float y,float px,float py,float s,float rough,float sof
 void main(){
   vec3 src = texture(uImg, uv).rgb;
   if(uBypass>0.5){ outColor = vec4(src,1.0); return; }   // A/B: show original
+  // A/B split view: left half = original, right half = grained, thin divider
+  if(uSplit >= 0.0){
+    float lw = 1.5/uRes.x;
+    if(abs(uv.x - uSplit) < lw){ outColor = vec4(1.0,1.0,1.0,1.0); return; }
+    if(uv.x < uSplit){ outColor = vec4(src,1.0); return; }
+  }
   float px = uv.x*uRes.x, py = uv.y*uRes.y;
   // resolution normalisation (see DCTL, automatic): grain px scales with image
   // height / 1080 so the look is identical whatever the resolution. Ref = 1080p.
@@ -248,7 +263,7 @@ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
 
 const U={};
-['uImg','uRes','uInt','uSize','uSoft','uRough','uSh','uMid','uHi','uColAmt','uColSat','uSeed','uMix','uClamp','uBypass']
+['uImg','uRes','uInt','uSize','uSoft','uRough','uSh','uMid','uHi','uColAmt','uColSat','uSeed','uMix','uClamp','uBypass','uSplit']
   .forEach(n=>U[n]=gl.getUniformLocation(prog,n));
 
 // ---- state / controls --------------------------------------------------------
@@ -257,7 +272,7 @@ const U={};
 // Values = 35mm base (int 0.2 / size 1.6) x the real enlargement factor per format.
 // Custom (0) leaves the sliders untouched for freeform work.
 const STOCK_FILL={1:[0.64,6.1], 2:[0.40,3.44], 3:[0.20,1.6], 4:[0.09,0.8]};
-let W=0,H=0,hasImg=false,animOn=false,animSeed=0,spaceHeld=false;
+let W=0,H=0,hasImg=false,animOn=false,animSeed=0,spaceHeld=false,splitOn=false;
 function updateBadge(byp){
   const b=document.getElementById('badge');
   if(!hasImg){ b.style.display='none'; return; }
@@ -290,9 +305,18 @@ function render(forceGrain){
   gl.uniform1f(U.uSeed, animOn? animSeed : +$('seed').value);
   gl.uniform1f(U.uMix,+$('mix').value);
   gl.uniform1f(U.uClamp,$('clamp').checked?1:0);
-  const byp = forceGrain ? false : (spaceHeld ? true : !$('showGrain').checked);
+  // split view active unless we're exporting (forceGrain) or peeking full original (space)
+  const split = splitOn && !forceGrain && !spaceHeld;
+  gl.uniform1f(U.uSplit, split ? 0.5 : -1.0);
+  // in split mode the grain path must run (ignore the Show-grain toggle)
+  const byp = forceGrain ? false : (spaceHeld ? true : (split ? false : !$('showGrain').checked));
   gl.uniform1f(U.uBypass, byp?1:0);
-  if(!forceGrain) updateBadge(byp);
+  if(!forceGrain){
+    $('lblA').classList.toggle('show', split);
+    $('lblB').classList.toggle('show', split);
+    if(split){ $('badge').style.display='none'; }
+    else updateBadge(byp);
+  }
   gl.drawArrays(gl.TRIANGLES,0,3);
 }
 
@@ -315,6 +339,13 @@ function applyStock(){
 }
 $('stock').addEventListener('change',applyStock);
 applyStock();  // init: default 35mm fills 0.20 / 1.6
+
+// A/B split view toggle: left half original, right half grained, centre divider
+$('splitBtn').addEventListener('click',()=>{
+  splitOn=!splitOn;
+  $('splitBtn').classList.toggle('on',splitOn);
+  render();
+});
 $('clamp').addEventListener('change',render);
 $('showGrain').addEventListener('change',render);
 
@@ -395,6 +426,7 @@ $('saveBtn').addEventListener('click',()=>{
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),2000);
   },'image/jpeg',0.95);
+  render(); // restore interactive view (split/badge) after capturing the frame
 });
 </script>
 </body>
