@@ -5,11 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>grain.js - embed demo</title>
 <style>
-  body{margin:0;background:#111;color:#eee;font:15px/1.6 system-ui,sans-serif;padding:40px;max-width:900px;margin:auto}
-  h1{font-weight:600} code{background:#222;padding:2px 6px;border-radius:4px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:28px 0}
-  figure{margin:0} img{width:100%;height:auto;border-radius:8px;display:block}
+  *{box-sizing:border-box}
+  body{margin:0 auto;background:#111;color:#eee;font:15px/1.6 system-ui,sans-serif;
+    padding:clamp(20px,5vw,40px);max-width:900px}
+  h1{font-weight:600;font-size:clamp(24px,7vw,34px)}
+  code{background:#222;padding:2px 6px;border-radius:4px;word-break:break-word}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,3vw,24px);margin:28px 0}
+  figure{margin:0;min-width:0} img{width:100%;height:auto;border-radius:8px;display:block}
   figcaption{font-size:13px;color:#9aa;margin-top:8px}
+  @media (max-width:560px){ .grid{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
