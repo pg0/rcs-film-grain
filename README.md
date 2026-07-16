@@ -100,16 +100,10 @@ original for reference.
 <td><img src="images/crop-original-gray.jpg" width="100%"></td>
 </tr>
 <tr>
-<td align="right"><b>Super&nbsp;8</b></td>
-<td><img src="images/crop-8mm-checker.jpg" width="100%"></td>
-<td><img src="images/crop-8mm-color.jpg" width="100%"></td>
-<td><img src="images/crop-8mm-gray.jpg" width="100%"></td>
-</tr>
-<tr>
-<td align="right"><b>16mm</b></td>
-<td><img src="images/crop-16mm-checker.jpg" width="100%"></td>
-<td><img src="images/crop-16mm-color.jpg" width="100%"></td>
-<td><img src="images/crop-16mm-gray.jpg" width="100%"></td>
+<td align="right"><b>65mm</b></td>
+<td><img src="images/crop-65mm-checker.jpg" width="100%"></td>
+<td><img src="images/crop-65mm-color.jpg" width="100%"></td>
+<td><img src="images/crop-65mm-gray.jpg" width="100%"></td>
 </tr>
 <tr>
 <td align="right"><b>35mm</b></td>
@@ -118,10 +112,16 @@ original for reference.
 <td><img src="images/crop-35mm-gray.jpg" width="100%"></td>
 </tr>
 <tr>
-<td align="right"><b>65mm</b></td>
-<td><img src="images/crop-65mm-checker.jpg" width="100%"></td>
-<td><img src="images/crop-65mm-color.jpg" width="100%"></td>
-<td><img src="images/crop-65mm-gray.jpg" width="100%"></td>
+<td align="right"><b>16mm</b></td>
+<td><img src="images/crop-16mm-checker.jpg" width="100%"></td>
+<td><img src="images/crop-16mm-color.jpg" width="100%"></td>
+<td><img src="images/crop-16mm-gray.jpg" width="100%"></td>
+</tr>
+<tr>
+<td align="right"><b>Super&nbsp;8</b></td>
+<td><img src="images/crop-8mm-checker.jpg" width="100%"></td>
+<td><img src="images/crop-8mm-color.jpg" width="100%"></td>
+<td><img src="images/crop-8mm-gray.jpg" width="100%"></td>
 </tr>
 </table>
 
@@ -139,16 +139,10 @@ original for reference.
 <td><img src="images/original-gray.jpg" width="100%"></td>
 </tr>
 <tr>
-<td align="right"><b>Super&nbsp;8</b></td>
-<td><img src="images/8mm-checker.jpg" width="100%"></td>
-<td><img src="images/8mm-color.jpg" width="100%"></td>
-<td><img src="images/8mm-gray.jpg" width="100%"></td>
-</tr>
-<tr>
-<td align="right"><b>16mm</b></td>
-<td><img src="images/16mm-checker.jpg" width="100%"></td>
-<td><img src="images/16mm-color.jpg" width="100%"></td>
-<td><img src="images/16mm-gray.jpg" width="100%"></td>
+<td align="right"><b>65mm</b></td>
+<td><img src="images/65mm-checker.jpg" width="100%"></td>
+<td><img src="images/65mm-color.jpg" width="100%"></td>
+<td><img src="images/65mm-gray.jpg" width="100%"></td>
 </tr>
 <tr>
 <td align="right"><b>35mm</b></td>
@@ -157,10 +151,16 @@ original for reference.
 <td><img src="images/35mm-gray.jpg" width="100%"></td>
 </tr>
 <tr>
-<td align="right"><b>65mm</b></td>
-<td><img src="images/65mm-checker.jpg" width="100%"></td>
-<td><img src="images/65mm-color.jpg" width="100%"></td>
-<td><img src="images/65mm-gray.jpg" width="100%"></td>
+<td align="right"><b>16mm</b></td>
+<td><img src="images/16mm-checker.jpg" width="100%"></td>
+<td><img src="images/16mm-color.jpg" width="100%"></td>
+<td><img src="images/16mm-gray.jpg" width="100%"></td>
+</tr>
+<tr>
+<td align="right"><b>Super&nbsp;8</b></td>
+<td><img src="images/8mm-checker.jpg" width="100%"></td>
+<td><img src="images/8mm-color.jpg" width="100%"></td>
+<td><img src="images/8mm-gray.jpg" width="100%"></td>
 </tr>
 </table>
 </details>
